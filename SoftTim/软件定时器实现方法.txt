@@ -1,0 +1,36 @@
+新建了两个任务：初始化任务 和定时器任务【TCB 任务栈 任务函数体】
+初始化任务：进行 硬件 CPU 时基 内存的初始化 以及定时器任务的建立
+定时器任务：声明定时器 创建定时器 启动定时器 同时进行堵塞延时，让CPU一直在运行
+定时器回调函数：利用时间戳计算延时时间 同时打印出来时间。
+
+【软件定时器实现过程】
+ 利用systick 中断函数来进行软件定时器的使能检测 ，将信号量发布给中断处理函数，然后再进行处理 ，如果达到了时间，中断处理函数发布一个信号量，实现定时器列表的中的接受，进而就会进入到回调函数。执行完之后判断定时器的类型是否是循环类型，不是直接淘汰，是的话就再一次根据设定值插入到定时器列表中去。
+【软件定时器延时时间的计算方法】
+#define  OS_CFG_TICK_RATE_HZ            1000u               // 时钟节拍频率 (10 to 1000 Hz)    
+#define  OS_CFG_TMR_TASK_RATE_HZ          10u               //定时器的时基 (一般不能大于 OS_CFG_TICK_RATE_HZ ) 
+这里意思就是 系统的设定的时基是1000HZ 就是 1ms一次中断
+然后 软件定时器的时基是 10HZ  100ms 一次 再结合 preiod 参数就可以知道定时的时间值了。
+
+定时器初始化的代码解释：
+cpu_clk_freq = BSP_CPU_ClkFreq();
+/*
+这里是获取CPU的硬件频率值 例如 72Mhz
+*/
+cnts = cpu_clk_freq/(CPU_INT32U)OSCfg_TickRate_Hz;
+/*
+这里是计算Systick 的中断时间频率 : 例如需要72Khz的频率 就会有 CNTs为1000
+*/
+OS_CPU_SysTickInit(cnts);
+/*
+*将1000写入Systick  就是1000次之后会触发一次
+*/
+/*创建定时器*/
+  OSTmrCreate ((OS_TMR               * )&my_tmr,          //定时器控制块指针
+ (CPU_CHAR             *)"my_tmr",         //命名定时器，有助于调试
+ (OS_TICK)               10,            //初始延时的dly参数
+ (OS_TICK)               10,         //软件延时周期
+ (OS_OPT)                OS_OPT_TMR_PERIODIC,            //选项
+ (OS_TMR_CALLBACK_PTR)   SoftTimDone,     //定时到期时的回调函数
+(void                 *)0, //传给回调函数的参数
+(OS_ERR               *)&err);          //返回错误类型
+
